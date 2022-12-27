@@ -14,9 +14,12 @@ license = "MPL-2.0"
 chrono = { git = "https://github.com/mesalock-linux/chrono-sgx" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
-sgx_tstd = { git = "https://github.com/apache/teaclave-sgx-sdk.git" }
 sgx_types = { git = "https://github.com/apache/teaclave-sgx-sdk.git" }
+sgx_tstd = { git = "https://github.com/apache/teaclave-sgx-sdk.git", features = [
+    "net",
+    "thread",
+] }
 
 [patch.'https://github.com/apache/teaclave-sgx-sdk.git']
-sgx_tstd = { path = "./teaclave-sgx-sdk/sgx_tstd" }
 sgx_types = { path = "./teaclave-sgx-sdk/sgx_types" }
+sgx_tstd = { path = "./teaclave-sgx-sdk/sgx_tstd" }

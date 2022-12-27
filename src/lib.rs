@@ -374,7 +374,6 @@ impl Time {
 
         let naive = NaiveDateTime::from_timestamp(secs as i64, 0);
         let now = DateTime::from_utc(naive, Utc);
-        println!("---->>>>>>> Now: {} <<<<<<<<-----", now);
         now
     }
 }

@@ -3,6 +3,7 @@
 #![no_std]
 
 extern crate chrono;
+extern crate alloc;
 
 #[macro_use]
 extern crate sgx_tstd as std;
@@ -19,6 +20,7 @@ use core::sync::atomic::Ordering as AtomicOrdering;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, SgxCondvar, SgxMutex};
 use std::{thread, time::SystemTime};
+use std::untrusted::time::SystemTimeEx;
 
 /// An item scheduled for delayed execution.
 struct Schedule<T> {

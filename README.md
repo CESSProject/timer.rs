@@ -1,8 +1,8 @@
-# Timer
-
+# Timer SGX
+ 
 [![Build Status](https://api.travis-ci.org/Yoric/timer.rs.svg?branch=master)](https://travis-ci.org/Yoric/timer.rs)
 
-Simple implementation of a Timer in and for Rust.
+Simple implementation of a Timer in and for Rust and has support for intel SGX.
 
 # Example
 ```rust

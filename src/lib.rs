@@ -1,17 +1,24 @@
 //! A simple timer, used to enqueue operations meant to be executed at
 //! a given time or after a given delay.
+#![no_std]
 
 extern crate chrono;
 
+#[macro_use]
+extern crate sgx_tstd as std;
+
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::collections::BinaryHeap;
+use alloc::vec::Vec;
 use chrono::offset::Utc;
-use chrono::{DateTime, Duration};
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering as AtomicOrdering;
+use chrono::{DateTime, Duration, NaiveDateTime};
+use core::cmp::Ordering;
+use core::sync::atomic::AtomicBool;
+use core::sync::atomic::Ordering as AtomicOrdering;
 use std::sync::mpsc::{channel, Sender};
-use std::sync::{Arc, Condvar, Mutex};
-use std::thread;
+use std::sync::{Arc, SgxCondvar, SgxMutex};
+use std::{thread, time::SystemTime};
 
 /// An item scheduled for delayed execution.
 struct Schedule<T> {
@@ -58,15 +65,15 @@ enum Op<T> {
 /// Communication thread and the Scheuler thread.
 struct WaiterChannel<T> {
     /// Pending messages.
-    messages: Mutex<Vec<Op<T>>>,
+    messages: SgxMutex<Vec<Op<T>>>,
     /// A condition variable used for waiting.
-    condvar: Condvar,
+    condvar: SgxCondvar,
 }
 impl<T> WaiterChannel<T> {
     fn with_capacity(cap: usize) -> Self {
         WaiterChannel {
-            messages: Mutex::new(Vec::with_capacity(cap)),
-            condvar: Condvar::new(),
+            messages: SgxMutex::new(Vec::with_capacity(cap)),
+            condvar: SgxCondvar::new(),
         }
     }
 }
@@ -166,7 +173,7 @@ where
         let ref waiter = *self.waiter;
         loop {
             let mut sleep = if let Some(sched) = self.heap.peek() {
-                let now = chrono::offset::Utc::now();
+                let now: DateTime<Utc> = Time::now();
                 if sched.date > now {
                     // First item is not ready yet, so we need to
                     // wait until it is or something happens.
@@ -291,7 +298,7 @@ where
         // long for the mutex.
         let (tx, rx) = channel();
         thread::spawn(move || {
-            use Op::*;
+            use self::Op::*;
             let ref waiter = *waiter_send;
             for msg in rx.iter() {
                 let mut vec = waiter.messages.lock().unwrap();
@@ -318,11 +325,11 @@ where
                 scheduler.run()
             })
             .unwrap();
-        TimerBase { tx: tx }
+        TimerBase { tx }
     }
 
     pub fn schedule_with_delay(&self, delay: Duration, data: T) -> Guard {
-        self.schedule_with_date(Utc::now() + delay, data)
+        self.schedule_with_date(Time::now() + delay, data)
     }
 
     pub fn schedule_with_date<D>(&self, date: DateTime<D>, data: T) -> Guard
@@ -333,7 +340,7 @@ where
     }
 
     pub fn schedule_repeating(&self, repeat: Duration, data: T) -> Guard {
-        self.schedule(Utc::now() + repeat, Some(repeat), data)
+        self.schedule(Time::now() + repeat, Some(repeat), data)
     }
 
     pub fn schedule<D>(&self, date: DateTime<D>, repeat: Option<Duration>, data: T) -> Guard
@@ -344,14 +351,32 @@ where
         self.tx
             .send(Op::Schedule(Schedule {
                 date: date.with_timezone(&Utc),
-                data: data,
+                data,
                 guard: guard.clone(),
-                repeat: repeat,
+                repeat,
             }))
             .unwrap();
         guard
     }
 }
+
+pub struct Time {}
+
+impl Time {
+    #[inline] 
+    pub fn now() -> DateTime<Utc> {
+        let secs = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+        let naive = NaiveDateTime::from_timestamp(secs as i64, 0);
+        let now = DateTime::from_utc(naive, Utc);
+        println!("---->>>>>>> Now: {} <<<<<<<<-----", now);
+        now
+    }
+}
+
 
 /// A timer, used to schedule execution of callbacks at a later date.
 ///
